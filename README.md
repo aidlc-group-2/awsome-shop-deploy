@@ -73,8 +73,9 @@ aws ssm start-session --target i-0d1d69a9339074fef --region us-east-1 \
 | 服务端口 | auth 8001 / product 8002 / points 8003 / order 8004 / gateway 8080（容器内）|
 | 健康检查 | 建议暴露 `/actuator/health` |
 | 图片存储 | product-service 挂载 `product-images` 卷于 `/app/uploads` |
-| 前端产物 | frontend 镜像构建产物置于 `/app/dist`，由 compose 复制到 `frontend-dist` 卷供 nginx 提供 |
+| 前端产物 | **前端镜像最终阶段必须满足**：(1) 构建产物位于 `/app/dist`；(2) 镜像内含 `sh` 与 `cp`（基于 alpine/debian 等，**不可用 distroless**）。compose 的 `frontend` 容器复制产物到 `frontend-dist` 卷后退出，`nginx` 通过 `service_completed_successfully` 等其完成后再启动。 |
 | 网关前缀 | Nginx 将 `/api/*` 剥离前缀后转发（`/api/auth/login → /auth/login`）；若网关保留 `/api`，改 nginx.conf 的 `proxy_pass` |
+| 上传体积 | nginx 限 `client_max_body_size 10m`；网关(Spring Cloud Gateway)与 product-service 也需放宽到 ≥10m，否则大图上传中途 413 |
 
 ## 安全提示
 
