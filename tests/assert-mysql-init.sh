@@ -39,7 +39,9 @@ for s in $SCHEMAS; do
 done
 
 # ---------- 2. 应用账号授权覆盖 4 schema ----------
-GRANTS=$(q_root "SHOW GRANTS FOR '${MYSQL_APP_USER}'@'%';")
+# 注意：官方入口对 MYSQL_DATABASE 的 GRANT 会转义下划线（awsomeshop\_auth，
+# 因 _ 在 GRANT 库名中是通配符），init 脚本的 GRANT 则不转义——比对前归一化。
+GRANTS=$(q_root "SHOW GRANTS FOR '${MYSQL_APP_USER}'@'%';" | tr -d '\\')
 for s in $SCHEMAS; do
     if echo "$GRANTS" | grep -q "\`$s\`"; then
         pass "授权：${MYSQL_APP_USER} → $s"
