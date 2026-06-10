@@ -1,0 +1,55 @@
+# Unit 7 自验 CI — infra/VALIDATION.md 的自动重放
+# 任何人改 compose / init 脚本 / nginx.conf，push 即重跑全套基础设施验证。
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- 静态检查（秒级）----------
+      - name: 生成 CI 用 .env
+        run: |
+          cp .env.example .env
+          sed -i "s/change-me-root-pass/ci-root-$RANDOM$RANDOM/" .env
+          sed -i "s/change-me-app-pass/ci-app-$RANDOM$RANDOM/" .env
+
+      - name: docker compose 语法
+        run: docker compose config -q
+
+      - name: nginx 配置语法
+        run: >
+          docker run --rm
+          -v "$PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro"
+          nginx:1.27-alpine nginx -t
+
+      - name: shellcheck（init / infra / tests / smoke）
+        # -S warning：info 级提示不阻塞（user-data.sh 存在已知 SC2015 info）
+        run: shellcheck -S warning mysql/init/*.sh infra/*.sh tests/*.sh smoke/*.sh
+
+      # ---------- 动态验证（分钟级）= VALIDATION.md 自动化 ----------
+      - name: 启动 MySQL 并等待 healthy
+        run: docker compose up -d mysql --wait
+
+      - name: 断言 4 schema + 授权 + 应用账号读写往返
+        run: ./tests/assert-mysql-init.sh
+
+      # 改名场景回归：MYSQL_APP_USER 改名后授权应跟随（code review #4 的回归测试）
+      - name: 改名应用账号回归
+        run: |
+          docker compose down -v
+          sed -i "s/^MYSQL_APP_USER=.*/MYSQL_APP_USER=renamed_user/" .env
+          docker compose up -d mysql --wait
+          ./tests/assert-mysql-init.sh
+
+      - name: 清理
+        if: always()
+        run: docker compose down -v

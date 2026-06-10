@@ -9,11 +9,17 @@ awsome-shop-deploy/
 ├── docker-compose.yml          # 编排：8 容器 + 网络 + 卷
 ├── .env.example                # 环境配置模板（复制为 .env 使用）
 ├── .gitignore                  # 排除真实 .env
+├── .github/workflows/
+│   └── validate.yml            # CI：push 即自动重放基础设施验证（VALIDATION.md 自动化）
 ├── nginx/
 │   └── nginx.conf              # 静态资源 + /api 反代网关
-└── mysql/
-    └── init/
-        └── 01-create-schemas.sql  # 仅建 4 个空 schema + 授权（不建表）
+├── mysql/
+│   └── init/
+│       └── 01-create-schemas.sh   # 仅建 4 个空 schema + 授权（不建表）
+├── tests/
+│   └── assert-mysql-init.sh    # MySQL 初始化断言（schema/授权/应用账号读写往返）
+└── smoke/
+    └── smoke.sh                # 部署后冒烟链（分级探测，服务未就绪自动 SKIP）
 ```
 
 > 各业务服务源码目录与本目录**同级**（Monorepo 风格摆放）：
@@ -51,6 +57,16 @@ aws ssm start-session --target i-0d1d69a9339074fef --region us-east-1 \
 ```
 
 > 本机与 EC2 共用同一份 compose，差异仅在 `.env`。
+
+## 自动验证（CI + 冒烟）
+
+- **CI（`.github/workflows/validate.yml`）**：push/PR 自动跑——compose/nginx 语法 → shellcheck → 起真 MySQL 断言 4 schema/授权/应用账号读写往返（即 `infra/VALIDATION.md` 的自动重放）→ 改名应用账号回归。本仓库任何改动是否破坏底座，看 commit 旁的 ✅/❌ 即知。
+- **冒烟链（`smoke/smoke.sh`）**：部署后在编排机上跑 `./smoke/smoke.sh`。分级探测：Tier 0 容器状态 → Tier 1 MySQL/schema → Tier 2 nginx 入口 → Tier 3 业务链（注册→JWT→查积分余额）。**未部署的服务自动 SKIP 不算失败**——队友服务每接入一个，对应 Tier 自动生效，零 SKIP 零 FAIL 即全栈闭环。设 `SMOKE_WEBHOOK_URL` 可将摘要推送到群机器人。
+
+```bash
+./smoke/smoke.sh                          # 本地/EC2 上，部署后执行
+BASE_URL=http://localhost:8088 ./smoke/smoke.sh   # 经 SSM 端口转发从本机探测
+```
 
 ## 当前阶段限制
 
