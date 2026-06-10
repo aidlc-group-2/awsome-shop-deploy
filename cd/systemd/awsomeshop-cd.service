@@ -1,0 +1,15 @@
+# AWSomeShop CD 部署单元（由 awsomeshop-cd.timer 周期触发）
+# 安装：见 cd/README.md
+[Unit]
+Description=AWSomeShop CD - deploy latest green commits
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=ssm-user
+Group=docker
+WorkingDirectory=/opt/awsomeshop/awsome-shop-deploy
+ExecStart=/opt/awsomeshop/awsome-shop-deploy/cd/deploy.sh
+# build 全栈最坏情况的余量；超时杀掉，下一轮 flock 自然接管
+TimeoutStartSec=30min

@@ -1,0 +1,13 @@
+# AWSomeShop CD 触发器：每 10 分钟一轮（贴合 GitHub API 匿名配额）
+[Unit]
+Description=AWSomeShop CD timer
+
+[Timer]
+OnCalendar=*:0/10
+# 机器重启后若错过周期，启动后补跑一次
+Persistent=true
+# 错峰，避免整点惊群
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target

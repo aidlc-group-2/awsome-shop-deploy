@@ -18,8 +18,12 @@ awsome-shop-deploy/
 │       └── 01-create-schemas.sh   # 仅建 4 个空 schema + 授权（不建表）
 ├── tests/
 │   └── assert-mysql-init.sh    # MySQL 初始化断言（schema/授权/应用账号读写往返）
-└── smoke/
-    └── smoke.sh                # 部署后冒烟链（分级探测，服务未就绪自动 SKIP）
+├── smoke/
+│   └── smoke.sh                # 部署后冒烟链（分级探测，服务未就绪自动 SKIP）
+└── cd/
+    ├── deploy.sh               # CD：拉取各仓库最新 CI 全绿 commit 并部署（见 cd/README.md）
+    ├── cd.env.example          # CD 可选配置（GitHub token / 群 webhook）
+    └── systemd/                # timer + service（staging 上一次性安装）
 ```
 
 > 各业务服务源码目录与本目录**同级**（Monorepo 风格摆放）：
@@ -57,6 +61,10 @@ aws ssm start-session --target i-0d1d69a9339074fef --region us-east-1 \
 ```
 
 > 本机与 EC2 共用同一份 compose，差异仅在 `.env`。
+
+## 自动部署（CD）
+
+staging 上由 systemd timer 每 10 分钟执行 `cd/deploy.sh`：检查各服务仓库 main 的**最新 CI 全绿 commit**，有变更才构建替换该服务（失败隔离，旧容器不动），收尾跑冒烟链并将摘要发群。**CI 红 = staging 停在你上一个绿色版本，修绿即自动恢复。** 安装与日常操作见 `cd/README.md`。
 
 ## 自动验证（CI + 冒烟）
 
