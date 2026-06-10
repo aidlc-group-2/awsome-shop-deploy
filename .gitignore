@@ -1,0 +1,12 @@
+# 真实环境配置（含密钥），切勿提交
+.env
+
+# 凭证 / 密钥，绝不提交
+*credentials*
+*DONOTSHARE*
+*.pem
+*.key
+
+# 本地数据/日志
+*.log
+.DS_Store

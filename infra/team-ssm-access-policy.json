@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StartSessionOnStagingInstance",
+      "Effect": "Allow",
+      "Action": "ssm:StartSession",
+      "Resource": [
+        "arn:aws:ec2:us-east-1:984072314535:instance/i-0d1d69a9339074fef",
+        "arn:aws:ssm:us-east-1:984072314535:document/SSM-SessionManagerRunShell",
+        "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSession",
+        "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSessionToRemoteHost"
+      ]
+    },
+    {
+      "Sid": "ListAndDescribe",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:DescribeInstanceInformation",
+        "ssm:DescribeSessions",
+        "ssm:GetConnectionStatus",
+        "ec2:DescribeInstances"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "ManageOwnSessions",
+      "Effect": "Allow",
+      "Action": [
+        "ssm:TerminateSession",
+        "ssm:ResumeSession"
+      ],
+      "Resource": "arn:aws:ssm:us-east-1:984072314535:session/${aws:username}-*"
+    }
+  ]
+}
