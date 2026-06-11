@@ -19,6 +19,14 @@ BASE_URL="${BASE_URL:-http://localhost}"
 PASS_N=0; FAIL_N=0; SKIP_N=0
 SUMMARY=""
 
+# CloudFront 回源守卫（见 nginx.conf / infra/CDN-DEMO.md）：启用时本机 curl 会被 403，
+# 从 guard.conf 提取秘密值，所有经 nginx 的请求带上 X-Origin-Guard 头。
+GUARD_ARGS=()
+if [ -f nginx/origin-guard/guard.conf ]; then
+    GUARD_SECRET=$(grep -o '"[^"]*"' nginx/origin-guard/guard.conf | head -1 | tr -d '"')
+    [ -n "$GUARD_SECRET" ] && GUARD_ARGS=(-H "X-Origin-Guard: $GUARD_SECRET")
+fi
+
 note() { echo "$1"; SUMMARY+="$1"$'\n'; }
 pass() { note "PASS  $1"; PASS_N=$((PASS_N+1)); }
 fail() { note "FAIL  $1"; FAIL_N=$((FAIL_N+1)); }
@@ -67,7 +75,8 @@ else
     set -a; # shellcheck source=/dev/null
     source .env; set +a
     DBS=$(docker compose exec -T mysql mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -N -B -e "SHOW DATABASES;" 2>/dev/null)
-    for s in awsomeshop_auth awsomeshop_product awsomeshop_points awsomeshop_order; do
+    # 库名对齐 mysql/init/01-create-schemas.sh（下划线；point 单数；gateway 独立库）
+    for s in awsome_shop_auth awsome_shop_product awsome_shop_point awsome_shop_order awsome_shop_gateway; do
         if echo "$DBS" | grep -qx "$s"; then pass "schema $s"; else fail "schema $s 缺失"; fi
     done
 fi
@@ -77,12 +86,12 @@ note "--- Tier 2 入口层 ---"
 if [ -z "$(cid nginx)" ]; then
     skip "nginx 未部署，跳过入口层"
 else
-    code=$(curl -fso /dev/null -w '%{http_code}' --max-time 5 "$BASE_URL/healthz" || true)
+    code=$(curl -fso /dev/null -w '%{http_code}' --max-time 5 "${GUARD_ARGS[@]}" "$BASE_URL/healthz" || true)
     if [ "$code" = "200" ]; then pass "nginx /healthz → 200"; else fail "nginx /healthz → ${code:-超时}"; fi
     if [ -z "$(cid frontend)" ]; then
         skip "frontend 未部署，跳过 SPA 首页"
     else
-        code=$(curl -fso /dev/null -w '%{http_code}' --max-time 5 "$BASE_URL/" || true)
+        code=$(curl -fso /dev/null -w '%{http_code}' --max-time 5 "${GUARD_ARGS[@]}" "$BASE_URL/" || true)
         if [ "$code" = "200" ]; then pass "SPA 首页 → 200"; else fail "SPA 首页 → ${code:-超时}"; fi
     fi
 fi
@@ -101,7 +110,7 @@ else
     # 客户端路径按网关契约保留 /api 前缀（gateway-service-api.md：路由为 /api/v1/**）
     resp=""
     for _ in 1 2 3; do
-        resp=$(curl -fs --max-time 10 -X POST "$BASE_URL/api/v1/public/auth/register" \
+        resp=$(curl -fs --max-time 10 "${GUARD_ARGS[@]}" -X POST "$BASE_URL/api/v1/public/auth/register" \
             -H 'Content-Type: application/json' \
             -d "{\"username\":\"$USER\",\"email\":\"$USER@$DOMAIN\",\"password\":\"Smoke123456\"}" ) && break
         sleep 5
@@ -111,7 +120,7 @@ else
         TOKEN=$(echo "$resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["token"])' 2>/dev/null || true)
         UID_=$(echo "$resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["userId"])' 2>/dev/null || true)
         if [ -n "$TOKEN" ]; then
-            bal=$(curl -fs --max-time 10 -X POST "$BASE_URL/api/v1/public/point/balance/get" \
+            bal=$(curl -fs --max-time 10 "${GUARD_ARGS[@]}" -X POST "$BASE_URL/api/v1/public/point/balance/get" \
                 -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
                 -d "{\"userId\":${UID_:-0}}" || true)
             if echo "$bal" | grep -Eq '"code"\s*:\s*"SUCCESS"'; then

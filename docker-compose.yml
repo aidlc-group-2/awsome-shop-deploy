@@ -135,8 +135,10 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
-      # ⚠️ 待修复（order 仓）：order 调用 product/points 的下游地址未在 docker profile 配置，
-      #    需在 order 仓 application-docker.yml 增加下游 URL（指向 http://product-service:8081 等）。
+      # 下游地址（Saga：积分扣减/退回、库存预占/释放/扣减）。
+      # order 仓 application.yml 默认 localhost:8002/8003，环境变量优先级更高，直接在此覆盖。
+      SHOP_POINTS_BASE_URL: http://points-service:8081
+      SHOP_PRODUCT_BASE_URL: http://product-service:8081
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -160,10 +162,12 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
-      # ⚠️ 待修复（gateway 仓）：路由(routes)与下游地址(gateway.services.*)仅在 application-local.yml，
-      #    docker profile 缺失 → 容器内网关无路由。需在 gateway 仓 application-docker.yml 补：
-      #    gateway.services.auth=http://auth-service:8081 / product=http://product-service:8081 /
-      #    point=http://points-service:8081 / order=http://order-service:8081 + 对应 routes。
+      # 下游服务地址。路由(routes)已下沉到 gateway 仓 application.yml（所有环境通用），
+      # uri 通过 gateway.services.* 引用，由以下环境变量覆盖（默认 localhost:800x）。
+      GATEWAY_SERVICE_AUTH: http://auth-service:8081
+      GATEWAY_SERVICE_PRODUCT: http://product-service:8081
+      GATEWAY_SERVICE_POINT: http://points-service:8081
+      GATEWAY_SERVICE_ORDER: http://order-service:8081
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }

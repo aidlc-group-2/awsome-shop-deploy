@@ -34,10 +34,7 @@ ALLOW_NO_CI="${ALLOW_NO_CI:-false}"
 exec 9>"$LOG_DIR/.lock"
 flock -n 9 || { echo "已有部署进行中，本轮跳过"; exit 0; }
 
-# compose 服务名 → GitHub 仓库名 / 本地目录名（= compose 的 build context）
-# ⚠️ api-gateway：org 实际仓库为 awsome-shop-gateway-service，而 compose/设计文档写
-#    awsome-shop-api-gateway——克隆时用"真实仓库名 → compose 期望的目录名"桥接，
-#    命名统一后只需改这两行。
+# compose 服务名 → GitHub 仓库名（本地目录名 = 仓库名 = compose 的 build context）
 SERVICES=(auth-service api-gateway product-service points-service order-service frontend)
 repo_of() {
     case "$1" in
@@ -50,10 +47,7 @@ repo_of() {
     esac
 }
 dir_of() {
-    case "$1" in
-        api-gateway) echo "$WORKSPACE/awsome-shop-api-gateway" ;;
-        *)           echo "$WORKSPACE/$(repo_of "$1")" ;;
-    esac
+    echo "$WORKSPACE/$(repo_of "$1")"
 }
 
 notify() {
