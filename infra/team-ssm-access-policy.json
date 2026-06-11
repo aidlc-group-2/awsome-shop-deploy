@@ -9,7 +9,8 @@
         "arn:aws:ec2:us-east-1:984072314535:instance/i-0d1d69a9339074fef",
         "arn:aws:ssm:us-east-1:984072314535:document/SSM-SessionManagerRunShell",
         "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSession",
-        "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSessionToRemoteHost"
+        "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSessionToRemoteHost",
+        "arn:aws:ssm:us-east-1::document/AWS-StartSSHSession"
       ]
     },
     {
