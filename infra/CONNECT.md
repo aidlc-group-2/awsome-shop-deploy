@@ -98,7 +98,9 @@ Host awsomeshop-staging
   ServerAliveInterval 30
 ```
 
-> **注意**：`User` 填开通后分给你的 Linux 用户名（不是 IAM 用户名）。目前已开通：Eric → `ericyan`。
+> **注意**：`User` 填开通后分给你的 Linux 用户名（不是 IAM 用户名）。目前已开通：
+> - Eric Yan → `ericyan`
+> - Yuanbo Li → `yuanbo`
 
 ### 步骤 2：SSH 登录
 
