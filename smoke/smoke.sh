@@ -120,9 +120,11 @@ else
         TOKEN=$(echo "$resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["token"])' 2>/dev/null || true)
         UID_=$(echo "$resp" | python3 -c 'import sys,json;print(json.load(sys.stdin)["data"]["userId"])' 2>/dev/null || true)
         if [ -n "$TOKEN" ]; then
+            # ⚠️ 契约缺口：points 从 body 读 operatorId，而网关 OperatorIdInjectionFilter 注入的
+            #    字段名是 userId —— 两仓字段名未对齐，已知问题。在对齐前显式传 operatorId。
             bal=$(curl -fs --max-time 10 "${GUARD_ARGS[@]}" -X POST "$BASE_URL/api/v1/public/point/balance/get" \
                 -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" \
-                -d "{\"userId\":${UID_:-0}}" || true)
+                -d "{\"operatorId\":\"${UID_:-0}\"}" || true)
             if echo "$bal" | grep -Eq '"code"\s*:\s*"SUCCESS"'; then
                 pass "积分余额查询（points 经网关）"
             else
