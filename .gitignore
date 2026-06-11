@@ -10,3 +10,6 @@
 # 本地数据/日志
 *.log
 .DS_Store
+
+# CDN 回源守卫（含秘密头，演示期现场生成，不入库）
+nginx/origin-guard/*.conf

@@ -133,6 +133,8 @@ services:
       - "80:80"   # 唯一对宿主暴露的端口
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # 回源守卫目录：默认仅 .gitkeep（不启用）；对外演示时放入 guard.conf（见 infra/CDN-DEMO.md）
+      - ./nginx/origin-guard:/etc/nginx/origin-guard:ro
       - frontend-dist:/usr/share/nginx/html:ro
     depends_on:
       # 等前端把产物导出到 frontend-dist 卷后再启动，避免首批请求 404
