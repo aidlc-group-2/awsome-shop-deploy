@@ -31,6 +31,24 @@ services:
     # 调试时可暴露（默认不对宿主开放）
     # ports: ["3306:3306"]
 
+  # ---------- 缓存 ----------
+  redis:
+    image: redis:7.4-alpine
+    container_name: awsomeshop-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    networks: [awsomeshop-net]
+    # 调试时可暴露（默认不对宿主开放）
+    # ports: ["6379:6379"]
+
   # ---------- 业务服务（源码就绪后可构建）----------
   auth-service:
     build: ../awsome-shop-auth-service
@@ -42,9 +60,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       EMAIL_DOMAIN_WHITELIST: ${EMAIL_DOMAIN_WHITELIST}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: ${TZ}
     depends_on:
       mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [awsomeshop-net]
 
   product-service:
@@ -55,11 +76,14 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/awsomeshop_product?useUnicode=true&characterEncoding=utf8&serverTimezone=${TZ}
       SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: ${TZ}
     volumes:
       - product-images:/app/uploads   # 图片卷由商品服务独占（Q6=A）
     depends_on:
       mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [awsomeshop-net]
 
   points-service:
@@ -71,9 +95,12 @@ services:
       SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
       ONBOARDING_POINTS: ${ONBOARDING_POINTS}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: ${TZ}
     depends_on:
       mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
     networks: [awsomeshop-net]
 
   order-service:
@@ -86,9 +113,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
       PRODUCT_SERVICE_URL: http://product-service:8002
       POINTS_SERVICE_URL: http://points-service:8003
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: ${TZ}
     depends_on:
       mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
       product-service: { condition: service_started }
       points-service: { condition: service_started }
     networks: [awsomeshop-net]
@@ -103,8 +133,11 @@ services:
       PRODUCT_SERVICE_URL: http://product-service:8002
       POINTS_SERVICE_URL: http://points-service:8003
       ORDER_SERVICE_URL: http://order-service:8004
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
       TZ: ${TZ}
     depends_on:
+      redis: { condition: service_healthy }
       auth-service: { condition: service_started }
       product-service: { condition: service_started }
       points-service: { condition: service_started }
@@ -148,5 +181,6 @@ networks:
 
 volumes:
   mysql-data:
+  redis-data:
   product-images:
   frontend-dist:
