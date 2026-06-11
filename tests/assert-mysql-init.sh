@@ -1,7 +1,7 @@
 #!/bin/bash
 # MySQL 初始化断言 — infra/VALIDATION.md 的自动化版本（CI 与 staging 通用）
 # 前置：在仓库根目录、.env 已就位、mysql 容器已 healthy（docker compose up -d mysql --wait）
-# 断言：4 schema 存在且 utf8mb4 / 应用账号对 4 schema 授权 / 应用账号（非 root）建表-插入-查询-删除往返
+# 断言：5 schema 存在且 utf8mb4 / 应用账号对 5 schema 授权 / 应用账号（非 root）建表-插入-查询-删除往返
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
@@ -14,7 +14,7 @@ set -a
 source .env
 set +a
 
-SCHEMAS="awsomeshop_auth awsomeshop_product awsomeshop_points awsomeshop_order"
+SCHEMAS="awsome_shop_auth awsome_shop_product awsome_shop_point awsome_shop_order awsome_shop_gateway"
 FAILED=0
 
 pass() { echo "PASS  $1"; }

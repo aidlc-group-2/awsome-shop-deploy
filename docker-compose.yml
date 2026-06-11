@@ -1,8 +1,11 @@
 # AWSomeShop 一键编排 — Unit 7（基础设施/部署）
-# 说明：
-#  - MySQL / Nginx 使用官方镜像；6 个业务服务用 build 指向同级源码目录（Q2=C / Q3=A）
-#  - 当前仅 Unit 7 就绪，业务服务源码目录尚不存在，`up --build` 在 build 业务服务时会失败（预期）
-#  - 可先单独启动 mysql / nginx 做独立验证：docker compose up -d mysql
+# 已对齐各服务 application-docker.yml 的约定：
+#   - 激活 profile: SPRING_PROFILES_ACTIVE=docker
+#   - DB 变量: DB_HOST/DB_PORT/DB_NAME/DB_USERNAME/DB_PASSWORD
+#   - Redis 变量: REDIS_HOST/REDIS_PORT
+#   - 容器内端口统一 8081（docker profile 的 server.port）
+#   - 库名（下划线，注意 point 单数，gateway 亦有独立库）：
+#       awsome_shop_auth / awsome_shop_product / awsome_shop_point / awsome_shop_order / awsome_shop_gateway
 name: awsomeshop
 
 services:
@@ -13,8 +16,8 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      # 由官方入口自动创建 auth schema 与共享应用账号；其余 3 个 schema 由 init SQL 创建
-      MYSQL_DATABASE: awsomeshop_auth
+      # 官方入口自动创建 auth 库与共享应用账号；其余 4 个库由 init 脚本创建并授权
+      MYSQL_DATABASE: awsome_shop_auth
       MYSQL_USER: ${MYSQL_APP_USER}
       MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD}
       TZ: ${TZ}
@@ -46,22 +49,25 @@ services:
       retries: 10
       start_period: 10s
     networks: [awsomeshop-net]
-    # 调试时可暴露（默认不对宿主开放）
     # ports: ["6379:6379"]
 
   # ---------- 业务服务（源码就绪后可构建）----------
+  # 公共约定：profile=docker、容器端口 8081、DB_*/REDIS_* 变量、共享应用账号
   auth-service:
     build: ../awsome-shop-auth-service
     container_name: awsomeshop-auth
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/awsomeshop_auth?useUnicode=true&characterEncoding=utf8&serverTimezone=${TZ}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
-      JWT_SECRET: ${JWT_SECRET}
-      EMAIL_DOMAIN_WHITELIST: ${EMAIL_DOMAIN_WHITELIST}
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: awsome_shop_auth
+      DB_USERNAME: ${MYSQL_APP_USER}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
     depends_on:
       mysql: { condition: service_healthy }
@@ -73,14 +79,19 @@ services:
     container_name: awsomeshop-product
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/awsomeshop_product?useUnicode=true&characterEncoding=utf8&serverTimezone=${TZ}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: awsome_shop_product
+      DB_USERNAME: ${MYSQL_APP_USER}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
     volumes:
-      - product-images:/app/uploads   # 图片卷由商品服务独占（Q6=A）
+      - product-images:/app/uploads   # 图片卷由商品服务独占
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -91,12 +102,17 @@ services:
     container_name: awsomeshop-points
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/awsomeshop_points?useUnicode=true&characterEncoding=utf8&serverTimezone=${TZ}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
-      ONBOARDING_POINTS: ${ONBOARDING_POINTS}
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: awsome_shop_point
+      DB_USERNAME: ${MYSQL_APP_USER}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      ONBOARDING_POINTS: ${ONBOARDING_POINTS}
       TZ: ${TZ}
     depends_on:
       mysql: { condition: service_healthy }
@@ -108,14 +124,19 @@ services:
     container_name: awsomeshop-order
     restart: unless-stopped
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/awsomeshop_order?useUnicode=true&characterEncoding=utf8&serverTimezone=${TZ}
-      SPRING_DATASOURCE_USERNAME: ${MYSQL_APP_USER}
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_APP_PASSWORD}
-      PRODUCT_SERVICE_URL: http://product-service:8002
-      POINTS_SERVICE_URL: http://points-service:8003
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: awsome_shop_order
+      DB_USERNAME: ${MYSQL_APP_USER}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
+      # ⚠️ 待修复（order 仓）：order 调用 product/points 的下游地址未在 docker profile 配置，
+      #    需在 order 仓 application-docker.yml 增加下游 URL（指向 http://product-service:8081 等）。
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -124,19 +145,27 @@ services:
     networks: [awsomeshop-net]
 
   api-gateway:
-    build: ../awsome-shop-api-gateway
+    build: ../awsome-shop-gateway-service
     container_name: awsomeshop-gateway
     restart: unless-stopped
     environment:
-      JWT_SECRET: ${JWT_SECRET}
-      AUTH_SERVICE_URL: http://auth-service:8001
-      PRODUCT_SERVICE_URL: http://product-service:8002
-      POINTS_SERVICE_URL: http://points-service:8003
-      ORDER_SERVICE_URL: http://order-service:8004
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: awsome_shop_gateway
+      DB_USERNAME: ${MYSQL_APP_USER}
+      DB_PASSWORD: ${MYSQL_APP_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       TZ: ${TZ}
+      # ⚠️ 待修复（gateway 仓）：路由(routes)与下游地址(gateway.services.*)仅在 application-local.yml，
+      #    docker profile 缺失 → 容器内网关无路由。需在 gateway 仓 application-docker.yml 补：
+      #    gateway.services.auth=http://auth-service:8081 / product=http://product-service:8081 /
+      #    point=http://points-service:8081 / order=http://order-service:8081 + 对应 routes。
     depends_on:
+      mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
       auth-service: { condition: service_started }
       product-service: { condition: service_started }
@@ -144,14 +173,11 @@ services:
       order-service: { condition: service_started }
     networks: [awsomeshop-net]
 
-  # 前端构建产物输出到共享卷，供 nginx 提供（交接契约见 README）
+  # 前端构建产物输出到共享卷，供 nginx 提供
   frontend:
     build: ../awsome-shop-frontend
     container_name: awsomeshop-frontend
     restart: "no"   # 一次性导出容器：复制产物后退出
-    # 交接契约（前端镜像必须满足）：
-    #   - 最终镜像内含构建产物目录 /app/dist
-    #   - 最终镜像内含 sh 与 cp（如基于 alpine/debian；distroless 不可用）
     command: ["sh", "-c", "cp -r /app/dist/. /export/ && echo 'frontend assets exported'"]
     volumes:
       - frontend-dist:/export
@@ -163,14 +189,12 @@ services:
     container_name: awsomeshop-nginx
     restart: unless-stopped
     ports:
-      - "80:80"   # 唯一对宿主暴露的端口
+      - "80:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      # 回源守卫目录：默认仅 .gitkeep（不启用）；对外演示时放入 guard.conf（见 infra/CDN-DEMO.md）
       - ./nginx/origin-guard:/etc/nginx/origin-guard:ro
       - frontend-dist:/usr/share/nginx/html:ro
     depends_on:
-      # 等前端把产物导出到 frontend-dist 卷后再启动，避免首批请求 404
       frontend: { condition: service_completed_successfully }
       api-gateway: { condition: service_started }
     networks: [awsomeshop-net]
