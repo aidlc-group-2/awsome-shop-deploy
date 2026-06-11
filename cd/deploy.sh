@@ -10,7 +10,7 @@
 # 设计要点：
 #   - 幂等：无变更时一次 API 调用都不发（git ls-remote 比对，不耗配额），跑一万次无害
 #   - 失败隔离：单服务 build 失败回退该服务源码、旧容器继续跑，不影响其他服务
-#   - 无 CI 的仓库默认 SKIP（推动队友接入 ci-setup-guide），可用 ALLOW_NO_CI=true 放行
+#   - 无 CI 的仓库默认 SKIP（推动队友接入 cd/ci-setup-guide.md），可用 ALLOW_NO_CI=true 放行
 #   - 部署有变更时收尾跑 smoke/smoke.sh 验收
 #
 # 配置（可选）：cd/cd.env —— GITHUB_TOKEN / CD_WEBHOOK_URL / ALLOW_NO_CI（见 cd.env.example）
@@ -140,7 +140,7 @@ for svc in "${SERVICES[@]}"; do
     rc=$?
     if [ $rc -ne 0 ]; then
         case $rc in
-            2) SKIPPED+=("$svc（未接 CI，见 ci-setup-guide）") ;;
+            2) SKIPPED+=("$svc（未接 CI，见 cd/ci-setup-guide.md）") ;;
             3) SKIPPED+=("$svc（main 近 10 个 commit 无绿色）") ;;
             *) SKIPPED+=("$svc（Checks API 失败）") ;;
         esac

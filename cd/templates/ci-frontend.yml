@@ -1,0 +1,33 @@
+# 复制到 awsome-shop-frontend 仓库的 .github/workflows/ci.yml
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # ① 测试（没有可删；--if-present 无脚本时自动跳过）
+      - name: Test
+        run: npm test --if-present
+
+      # ② 构建 + docker 打包验证
+      - name: Build
+        run: npm run build
+
+      - name: Docker build
+        run: docker build -t awsome-shop-frontend:ci .
